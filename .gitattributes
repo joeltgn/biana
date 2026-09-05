@@ -1,0 +1,8 @@
+# Lo que corre en el servidor, siempre con final de linea de Unix. Se
+# trabaja en Windows y se ejecuta en Debian: un .sh con retorno de carro no
+# arranca, y el error que da no dice en absoluto lo que pasa.
+*.sh text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
