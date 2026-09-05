@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { catalogoCacheado } from './catalogo.js';
 import { consultar } from './consulta.js';
 import { query } from './db.js';
+import { consultarEnVivo } from './ubikos-api.js';
 
 const OperadorZ = z
   .object({
@@ -98,6 +99,40 @@ export function createServer() {
       try {
         const r = await consultar(args as any);
         return { content: [{ type: 'text', text: JSON.stringify(r.filas, null, 1) }] };
+      } catch (e) {
+        return { content: [{ type: 'text', text: `Error: ${(e as Error).message}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    'consultar_en_vivo',
+    {
+      description:
+        'Pregunta DIRECTO a la API de Ubikos, sin pasar por la copia — para HOY y los últimos días, ' +
+        'donde la copia puede ir un paso por detrás de la carga de la noche. Tope de 31 días: un rango ' +
+        'más largo ya es histórico y se rechaza, con el motivo, para usar "consultar" en su lugar, que ' +
+        'lo tiene guardado y es más rápida. Vistas: reserva, capacidad, servicioreserva, ticket, ' +
+        'mealplaninfo. Sin agrupar ni sumar en el servidor —eso lo hace quien pregunta con lo que llega—: ' +
+        'es la llamada cruda de Ubikos, con sus nombres tal cual.',
+      inputSchema: {
+        vista: z.enum(['reserva', 'capacidad', 'servicioreserva', 'ticket', 'mealplaninfo']),
+        desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      },
+    },
+    async ({ vista, desde, hasta }) => {
+      try {
+        const r = await consultarEnVivo(vista, desde, hasta);
+        const filas = Array.isArray(r.datos) ? r.datos.length : 0;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ deCache: r.deCache, filas, datos: r.datos }, null, 1),
+            },
+          ],
+        };
       } catch (e) {
         return { content: [{ type: 'text', text: `Error: ${(e as Error).message}` }], isError: true };
       }
